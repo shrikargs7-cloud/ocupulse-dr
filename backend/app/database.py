@@ -31,6 +31,7 @@ from sqlalchemy import (
     Text,
     create_engine,
     event,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
 
@@ -60,31 +61,43 @@ except Exception as _adapter_err:
 
 
 # Configure SQLAlchemy engine dynamically for PostgreSQL (Supabase) or local SQLite
+engine = None
+_using_fallback_sqlite = False
+
 if settings.is_postgres:
+    try:
+        test_engine = create_engine(
+            settings.DATABASE_URL,
+            echo=False,
+            future=True,
+            pool_size=10,
+            max_overflow=20,
+            pool_pre_ping=True,
+            pool_recycle=300,
+            connect_args={
+                "connect_timeout": 3,
+                "application_name": "ocupluse_api",
+                "keepalives": 1,
+                "keepalives_idle": 30,
+                "keepalives_interval": 10,
+                "keepalives_count": 5,
+            },
+        )
+        with test_engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        engine = test_engine
+        print("✅ Connected to Supabase PostgreSQL successfully")
+    except Exception as _db_conn_err:
+        print(f"⚠️ Supabase PostgreSQL unavailable ({_db_conn_err}). Falling back to local SQLite engine.")
+        _using_fallback_sqlite = True
+
+if engine is None:
+    sqlite_path = settings.storage.database_path or os.path.join(settings.BACKEND_DIR, "oculpulse.db")
+    sqlite_url = f"sqlite:///{sqlite_path}"
     engine = create_engine(
-        settings.DATABASE_URL,
+        sqlite_url,
         echo=False,
         future=True,
-        pool_size=10,
-        max_overflow=20,
-        pool_pre_ping=True,
-        pool_recycle=300,
-        connect_args={
-            "connect_timeout": 10,
-            "application_name": "ocupluse_api",
-            "keepalives": 1,
-            "keepalives_idle": 30,
-            "keepalives_interval": 10,
-            "keepalives_count": 5,
-        },
-    )
-else:
-    engine = create_engine(
-        settings.DATABASE_URL,
-        echo=False,
-        future=True,
-        # FastAPI serves requests from a threadpool, so the connection is shared
-        # across threads; SQLite writes are still serialised by the engine pool.
         connect_args={"check_same_thread": False, "timeout": 30},
     )
 
@@ -96,6 +109,8 @@ else:
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.close()
+
+    print(f"✅ Active database: local SQLite at {sqlite_path}")
 
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)

@@ -6,13 +6,12 @@ import {
   FaMicroscope, 
   FaHistory, 
   FaInfoCircle, 
-  FaCogs,
   FaBars,
   FaTimes,
   FaEye,
   FaDatabase,
-  FaBrain,
-  FaCalendarCheck
+  FaCalendarCheck,
+  FaShieldAlt
 } from 'react-icons/fa';
 
 export const Navbar: React.FC = () => {
@@ -72,10 +71,8 @@ export const Navbar: React.FC = () => {
   const navItems = [
     { path: '/', label: 'Home', icon: FaHome },
     { path: '/analyze', label: 'Analyze', icon: FaMicroscope },
-    { path: '/models', label: 'Models & Datasets', icon: FaBrain },
     { path: '/history', label: 'History', icon: FaHistory },
     { path: '/appointments', label: 'Appointments', icon: FaCalendarCheck, badge: urgentApptsCount },
-    { path: '/simulink', label: 'Simulink', icon: FaCogs },
     { path: '/how-it-works', label: 'How It Works', icon: FaInfoCircle },
     { path: '/about', label: 'About', icon: FaInfoCircle },
   ];
@@ -149,6 +146,21 @@ export const Navbar: React.FC = () => {
                 </Link>
               );
             })}
+
+            {/* Link to Standalone Admin Website (Port 5174) */}
+            <div className="pl-2 border-l border-slate-800 ml-1">
+              <a
+                href="http://localhost:5174"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900/80 hover:bg-sky-950/60 text-sky-400 hover:text-sky-300 border border-sky-500/30 hover:border-sky-500/60 transition-all flex items-center space-x-1.5 shadow-sm group"
+                title="Open Admin & Systems Console (Simulink, Datasets, System Telemetry)"
+              >
+                <FaShieldAlt className="text-xs text-sky-400 group-hover:scale-110 transition-transform" />
+                <span>Admin Console</span>
+                <span className="text-[10px] font-mono bg-sky-500/20 text-sky-300 px-1.5 py-0.2 rounded border border-sky-500/40">5174</span>
+              </a>
+            </div>
           </div>
 
           {/* Mobile menu button */}
@@ -214,6 +226,22 @@ export const Navbar: React.FC = () => {
               </Link>
             );
           })}
+
+          <div className="pt-2 border-t border-slate-800/80">
+            <a
+              href="http://localhost:5174"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-sky-950/40 text-sky-300 border border-sky-500/30 hover:bg-sky-900/50"
+            >
+              <div className="flex items-center space-x-3">
+                <FaShieldAlt className="text-sky-400" />
+                <span>Admin & Systems Console</span>
+              </div>
+              <span className="text-[10px] font-mono bg-sky-500/20 text-sky-200 px-1.5 py-0.5 rounded border border-sky-500/40">Port 5174</span>
+            </a>
+          </div>
         </div>
       </motion.div>
     </nav>

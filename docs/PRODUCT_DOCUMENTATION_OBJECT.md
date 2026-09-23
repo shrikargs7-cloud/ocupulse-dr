@@ -608,6 +608,9 @@ The machine learning and computer vision pipelines are benchmarked across four g
 | APTOS 2019       | 3,662 fundus     | Variable         | 5-class ICDR     | Classifier      |
 | Blindness Det.   | photographs      | High-Res         | clinical labels  | fine-tuning     |
 +──────────────────+──────────────────+──────────────────+──────────────────+─────────────────+
+| Kaggle DR 2750   | 2,750 fundus     | High-Res         | 5 classes: 1000  | Class-imbalance |
+| (Sachin Kumar)   | photographs      | Standard         | No DR to 290 PDR | robustness eval |
++──────────────────+──────────────────+──────────────────+──────────────────+─────────────────+
 | DRIVE            | 40 fundus images | 565 x 584        | Dual manual      | Segmentation &  |
 |                  | (20 train/test)  |                  | vessel tracings  | skeleton verify |
 +──────────────────+──────────────────+──────────────────+──────────────────+─────────────────+

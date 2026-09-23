@@ -552,6 +552,14 @@ DATASETS: Tuple[DatasetSpec, ...] = (
         license_note="Kaggle competition rules; requires account and rule acceptance.",
     ),
     DatasetSpec(
+        key="kaggle_dr_2750",
+        name="Diabetic Retinopathy Balanced 5-Class Dataset (Sachin Kumar)",
+        purpose="5-level DR classification & class-imbalance evaluation (2,750 images: 1000 Healthy, 370 Mild, 900 Moderate, 190 Severe, 290 Proliferative)",
+        url="https://www.kaggle.com/datasets/sachinkumar413/diabetic-retinopathy-dataset",
+        gated=False,
+        license_note="Open Kaggle Community Dataset; 5 class labels, 2,750 fundus images.",
+    ),
+    DatasetSpec(
         key="idrid",
         name="IDRiD (Indian Diabetic Retinopathy Image Dataset)",
         purpose="Lesion-level annotations: microaneurysms, exudates, haemorrhages",

@@ -289,6 +289,7 @@ The models and algorithms within OcuPulse are designed and validated against int
 | Dataset | Sample Volume | Resolution | Ground Truth Annotations | Primary Usage |
 |---|---|---|---|---|
 | **APTOS 2019** | 3,662 fundus scans | Multi-resolution | 5-class ICDR severity grades | Deep learning classifier fine-tuning |
+| **Kaggle DR 2750** | 2,750 fundus scans | Multi-resolution | 5-class (Healthy: 1,000, Mild: 370, Moderate: 900, Severe: 190, PDR: 290) | Class-imbalance evaluation & ordinal grading |
 | **DRIVE** | 40 fundus images | $565 \times 584$ | Dual expert manual vessel segmentations | Vessel segmentation & skeleton accuracy |
 | **IDRiD** | 516 images | $4288 \times 2848$ | Pixel-level lesion masks (MA, HE, EX, SE) | Biophysical lesion detection calibration |
 | **Messidor-2** | 1,200 images | $1440 \times 960$ | DR grade and Diabetic Macular Edema (DME) | Cross-dataset generalizability testing |

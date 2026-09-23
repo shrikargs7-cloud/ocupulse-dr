@@ -24,9 +24,12 @@ frontend/.env
 
 # Local SQLite databases & uploads
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 oculpulse.db
 backend/oculpulse.db
+backend/*.db*
 storage/uploads/*
 !storage/uploads/.gitkeep
 backend/storage/uploads/*
@@ -37,10 +40,16 @@ reports/*
 !reports/.gitkeep
 
 # Node / Frontend
+node_modules
 node_modules/
+frontend/node_modules
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+admin_frontend/node_modules
+admin_frontend/node_modules/
+admin_frontend/dist/
+admin_frontend/.vite/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

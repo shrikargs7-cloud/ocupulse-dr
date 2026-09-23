@@ -31,6 +31,20 @@ DATASET_METADATA = {
         "classes": ["0: No DR", "1: Mild", "2: Moderate", "3: Severe", "4: Proliferative DR"],
         "folder": os.path.join(DATASETS_DIR, "aptos2019")
     },
+    "kaggle_dr_2750": {
+        "name": "Diabetic Retinopathy Balanced 5-Class Dataset (Sachin Kumar)",
+        "description": "2,750 retinal fundus images across 5 classes (Healthy: 1000, Mild: 370, Moderate: 900, Severe: 190, Proliferative: 290).",
+        "url": "https://www.kaggle.com/datasets/sachinkumar413/diabetic-retinopathy-dataset",
+        "cli_command": "kaggle datasets download -d sachinkumar413/diabetic-retinopathy-dataset -p data/datasets/kaggle_dr_2750 --unzip",
+        "classes": [
+            "1. Healthy (Not DR): 1,000",
+            "2. Mild DR: 370",
+            "3. Moderate DR: 900",
+            "4. Severe DR: 190",
+            "5. Proliferative DR: 290"
+        ],
+        "folder": os.path.join(DATASETS_DIR, "kaggle_dr_2750")
+    },
     "idrid": {
         "name": "IDRiD (Indian Diabetic Retinopathy Image Dataset)",
         "description": "516 clinical fundus scans from eye clinics in India with pixel-level lesion masks.",
