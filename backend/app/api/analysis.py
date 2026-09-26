@@ -6,7 +6,8 @@ import time
 import uuid
 from datetime import datetime
 
-from app.database import SessionLocal, Image, AnalysisLog, create_emergency_appointment
+from app.database import SessionLocal, Image, AnalysisLog, create_emergency_appointment, get_active_doctor
+from app.services.sms_service import send_referable_dr_alert
 from app.schemas import AnalysisResult, QualityAssessment, DrGrading, LesionData, FeatureData
 from app.processing.pipeline import AnalysisPipeline, mat_to_base64_png
 from app.ml.dr_classifier import DRClassifier
@@ -116,6 +117,14 @@ async def analyze_image(
         # Step 6.5: Automated Doctor Appointment Booking for ICDR Scale >= 2 (Moderate NPDR, Severe NPDR, PDR)
         if image.vision_threatening or (image.dr_grade is not None and image.dr_grade >= 2) or (image.neovascularization_count and image.neovascularization_count > 0):
             try:
+                active_doctor = get_active_doctor(db)
+                doc_name = active_doctor.full_name if active_doctor else "Dr. Sarah Lin, MD (Vitreoretinal Surgeon)"
+                doc_specialty = active_doctor.specialty if active_doctor else "Vitreoretinal Ophthalmology & Retinal Surgery"
+                hosp_name = active_doctor.hospital_name if active_doctor else "Apex Regional Eye Institute & Referral Center"
+                clinic_room = active_doctor.clinic_room if active_doctor else "Suite 402 - Emergency Retina Clinic"
+                contact_phone = active_doctor.phone_number if active_doctor else "+1 (800) 555-RETINA"
+                doc_id = active_doctor.doctor_id if active_doctor else "DOC-ONCALL"
+
                 dr_labels = {
                     2: "Level 2: Moderate NPDR (Referable DR)",
                     3: "Level 3: Severe NPDR",
@@ -137,18 +146,43 @@ async def analyze_image(
                 if image.vision_threatening:
                     clinical_reason += " Sight-threatening risk flagged."
 
-                create_emergency_appointment(
+                patient_label = f"Patient #{image.patient_id}" if image.patient_id else "Anonymous Patient"
+
+                appt = create_emergency_appointment(
                     db=db,
                     analysis_id=image.analysis_id or f"IMG-{image.id}",
                     patient_id=str(image.patient_id) if image.patient_id else "Anonymous",
+                    patient_name=patient_label,
+                    doctor_name=doc_name,
+                    doctor_specialty=doc_specialty,
+                    hospital_name=hosp_name,
+                    clinic_room=clinic_room,
+                    contact_phone=contact_phone,
                     dr_grade=image.dr_grade,
                     severity_level=sev_label,
                     clinical_reason=clinical_reason,
                     priority=priority,
                     action_required=action,
                 )
+                if appt:
+                    appt.doctor_id = doc_id
+                    appt.verification_status = "PENDING_DOCTOR_REVIEW"
+                    db.commit()
+
+                # Dispatch automated SMS alert to active doctor
+                if active_doctor and active_doctor.phone_number:
+                    send_referable_dr_alert(
+                        doctor_phone=active_doctor.phone_number,
+                        doctor_name=active_doctor.full_name,
+                        patient_name=patient_label,
+                        patient_id=str(image.patient_id) if image.patient_id else str(image.id),
+                        dr_grade=image.dr_grade or 2,
+                        severity=sev_label,
+                        analysis_id=image.analysis_id or f"IMG-{image.id}",
+                        db=db,
+                    )
             except Exception as _e:
-                pass
+                print(f"Appointment / SMS alert dispatch notice: {_e}")
         
         # Step 7: MATLAB Analysis (if available)
         matlab_result = None

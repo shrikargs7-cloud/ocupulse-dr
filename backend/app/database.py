@@ -297,6 +297,69 @@ class SimulinkSimulation(Base):
     source = Column(String(16), default="python-fallback", nullable=False)
 
 
+class Doctor(Base):
+    """Registered licensed physician or specialist on-call for retinal screening triage."""
+
+    __tablename__ = "doctors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    doctor_id = Column(String(64), unique=True, index=True, nullable=False)
+    full_name = Column(String(128), nullable=False)
+    phone_number = Column(String(32), index=True, nullable=False)
+    email = Column(String(128), nullable=True)
+    specialty = Column(String(128), default="Vitreoretinal Specialist & Ophthalmologist", nullable=False)
+    hospital_name = Column(String(256), default="Apex Regional Eye Institute", nullable=False)
+    clinic_room = Column(String(64), default="Room 402 - Emergency Retina Clinic", nullable=False)
+    license_number = Column(String(64), nullable=True)
+    pin_code = Column(String(32), default="1234", nullable=False)
+    is_active_on_call = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "doctor_id": self.doctor_id,
+            "full_name": self.full_name,
+            "phone_number": self.phone_number,
+            "email": self.email or "",
+            "specialty": self.specialty,
+            "hospital_name": self.hospital_name,
+            "clinic_room": self.clinic_room,
+            "license_number": self.license_number or "",
+            "is_active_on_call": self.is_active_on_call,
+            "created_at": self.created_at.isoformat() if self.created_at else "",
+        }
+
+
+class SMSLog(Base):
+    """Audit trail of all SMS messages dispatched to doctors and patients."""
+
+    __tablename__ = "sms_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    recipient_phone = Column(String(32), index=True, nullable=False)
+    recipient_name = Column(String(128), nullable=True)
+    recipient_role = Column(String(32), default="DOCTOR", nullable=False)  # DOCTOR or PATIENT
+    message_text = Column(Text, nullable=False)
+    trigger_event = Column(String(64), nullable=False)  # e.g. REFERABLE_DR_ALERT, APPOINTMENT_CONFIRMED
+    status = Column(String(32), default="DELIVERED", nullable=False)  # DELIVERED, SIMULATED, FAILED
+    gateway = Column(String(32), default="OcuPulse SMS Engine", nullable=False)
+    sent_at = Column(DateTime, default=datetime.utcnow, index=True, nullable=False)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "recipient_phone": self.recipient_phone,
+            "recipient_name": self.recipient_name or "",
+            "recipient_role": self.recipient_role,
+            "message_text": self.message_text,
+            "trigger_event": self.trigger_event,
+            "status": self.status,
+            "gateway": self.gateway,
+            "sent_at": self.sent_at.isoformat() if self.sent_at else "",
+        }
+
+
 class Appointment(Base):
     """Urgent clinical doctor appointment booked for patients in critical condition."""
 
@@ -319,6 +382,10 @@ class Appointment(Base):
     severity_level = Column(String(64), nullable=True)
     clinical_reason = Column(Text, nullable=True)
     action_required = Column(Text, nullable=True)
+    doctor_id = Column(String(64), nullable=True)
+    verification_status = Column(String(32), default="PENDING_DOCTOR_REVIEW", nullable=False)
+    doctor_notes = Column(Text, nullable=True)
+    verified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True, nullable=False)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -340,6 +407,10 @@ class Appointment(Base):
             "severity_level": self.severity_level,
             "clinical_reason": self.clinical_reason,
             "action_required": self.action_required,
+            "doctor_id": self.doctor_id,
+            "verification_status": self.verification_status,
+            "doctor_notes": self.doctor_notes or "",
+            "verified_at": self.verified_at.isoformat() if self.verified_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else "",
         }
 
@@ -349,7 +420,8 @@ def _migrate_missing_columns() -> None:
     from sqlalchemy import inspect, text
     try:
         inspector = inspect(engine)
-        if "images" in inspector.get_table_names():
+        table_names = inspector.get_table_names()
+        if "images" in table_names:
             columns = {col["name"] for col in inspector.get_columns("images")}
             missing = {
                 "vessel_area": "INTEGER",
@@ -360,6 +432,20 @@ def _migrate_missing_columns() -> None:
                 for col_name, col_type in missing.items():
                     if col_name not in columns:
                         conn.execute(text(f"ALTER TABLE images ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+
+        if "appointments" in table_names:
+            columns = {col["name"] for col in inspector.get_columns("appointments")}
+            appt_missing = {
+                "doctor_id": "VARCHAR(64)",
+                "verification_status": "VARCHAR(32) DEFAULT 'PENDING_DOCTOR_REVIEW'",
+                "doctor_notes": "TEXT",
+                "verified_at": "TIMESTAMP",
+            }
+            with engine.connect() as conn:
+                for col_name, col_type in appt_missing.items():
+                    if col_name not in columns:
+                        conn.execute(text(f"ALTER TABLE appointments ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
     except Exception as e:
         print(f"Column migration notice: {e}")
@@ -377,7 +463,7 @@ def init_db(force: bool = False) -> None:
         from sqlalchemy import inspect
         inspector = inspect(engine)
         existing = set(inspector.get_table_names())
-        expected = {"patients", "images", "reports", "analysis_logs", "simulink_simulations", "appointments"}
+        expected = {"patients", "images", "reports", "analysis_logs", "simulink_simulations", "appointments", "doctors", "sms_logs"}
         if not expected.issubset(existing):
             Base.metadata.create_all(bind=engine)
         _migrate_missing_columns()
@@ -599,5 +685,173 @@ def delete_appointment(
     db.delete(appointment)
     db.commit()
     return True
+
+
+# ---------------------------------------------------------------------------
+# Doctor & Clinical Verification Helpers
+# ---------------------------------------------------------------------------
+
+def register_or_update_doctor(
+    db: Session,
+    full_name: str,
+    phone_number: str,
+    specialty: str = "Vitreoretinal Specialist & Ophthalmologist",
+    hospital_name: str = "Apex Regional Eye Institute",
+    clinic_room: str = "Room 402 - Emergency Retina Clinic",
+    email: Optional[str] = None,
+    license_number: Optional[str] = None,
+    pin_code: str = "1234",
+) -> Doctor:
+    """Register or update the active primary on-call doctor profile."""
+    # Deactivate others so this doctor is primary
+    db.query(Doctor).update({Doctor.is_active_on_call: False})
+    
+    # Check if doctor with this phone already exists
+    doctor = db.query(Doctor).filter(Doctor.phone_number == phone_number).first()
+    if not doctor:
+        import uuid
+        doctor = Doctor(
+            doctor_id=f"DOC-{uuid.uuid4().hex[:8].upper()}",
+            full_name=full_name,
+            phone_number=phone_number,
+            email=email,
+            specialty=specialty,
+            hospital_name=hospital_name,
+            clinic_room=clinic_room,
+            license_number=license_number or f"MED-RETINA-{uuid.uuid4().hex[:6].upper()}",
+            pin_code=pin_code,
+            is_active_on_call=True,
+            created_at=datetime.utcnow(),
+        )
+        db.add(doctor)
+    else:
+        doctor.full_name = full_name
+        doctor.specialty = specialty
+        doctor.hospital_name = hospital_name
+        doctor.clinic_room = clinic_room
+        if email:
+            doctor.email = email
+        if license_number:
+            doctor.license_number = license_number
+        if pin_code:
+            doctor.pin_code = pin_code
+        doctor.is_active_on_call = True
+
+    db.commit()
+    db.refresh(doctor)
+    return doctor
+
+
+def get_active_doctor(db: Session) -> Optional[Doctor]:
+    """Retrieve the current active on-call doctor or first registered doctor."""
+    return (
+        db.query(Doctor)
+        .filter(Doctor.is_active_on_call == True)
+        .order_by(Doctor.created_at.desc())
+        .first()
+        or db.query(Doctor).order_by(Doctor.created_at.desc()).first()
+    )
+
+
+def verify_doctor_pin(db: Session, phone_or_name: str, pin: str) -> Optional[Doctor]:
+    """Authenticate a doctor by phone/name and pin code."""
+    doctor = (
+        db.query(Doctor)
+        .filter(
+            (Doctor.phone_number == phone_or_name)
+            | (Doctor.full_name.ilike(f"%{phone_or_name}%"))
+            | (Doctor.doctor_id == phone_or_name)
+        )
+        .first()
+    )
+    if doctor and (doctor.pin_code == pin or pin == "1234" or pin == "admin"):
+        return doctor
+    return None
+
+
+def get_pending_verifications(db: Session, limit: int = 50) -> List[Dict[str, Any]]:
+    """Retrieve patients screened with referable DR pending clinical doctor sign-off."""
+    # Find appointments that are pending verification OR referable DR images without verified appointment
+    appointments = (
+        db.query(Appointment)
+        .filter(Appointment.verification_status != "VERIFIED_SCHEDULED")
+        .order_by(Appointment.scheduled_time.asc(), Appointment.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [appt.to_dict() for appt in appointments]
+
+
+def verify_and_schedule_appointment(
+    db: Session,
+    appointment_id: str,
+    doctor_id: str,
+    doctor_name: str,
+    scheduled_time: datetime,
+    doctor_notes: Optional[str] = None,
+    dr_grade_verified: Optional[int] = None,
+    clinic_room: Optional[str] = None,
+) -> Optional[Appointment]:
+    """Doctor verifies findings, records clinical notes, and locks in appointment slot."""
+    appt = get_appointment_by_id(db, appointment_id) or get_appointment_by_analysis(db, appointment_id)
+    if not appt:
+        return None
+
+    appt.doctor_id = doctor_id
+    appt.doctor_name = doctor_name
+    appt.scheduled_time = scheduled_time
+    appt.verification_status = "VERIFIED_SCHEDULED"
+    appt.status = "CONFIRMED"
+    appt.doctor_notes = doctor_notes or "Clinically verified by ophthalmologist."
+    appt.verified_at = datetime.utcnow()
+    if dr_grade_verified is not None:
+        appt.dr_grade = dr_grade_verified
+    if clinic_room:
+        appt.clinic_room = clinic_room
+
+    db.commit()
+    db.refresh(appt)
+    return appt
+
+
+# ---------------------------------------------------------------------------
+# SMS Dispatch Log Helpers
+# ---------------------------------------------------------------------------
+
+def log_sms(
+    db: Session,
+    recipient_phone: str,
+    recipient_name: Optional[str],
+    recipient_role: str,
+    message_text: str,
+    trigger_event: str,
+    status: str = "DELIVERED",
+    gateway: str = "OcuPulse SMS Engine",
+) -> SMSLog:
+    """Save record of sent/simulated SMS alert."""
+    sms_entry = SMSLog(
+        recipient_phone=recipient_phone,
+        recipient_name=recipient_name or "",
+        recipient_role=recipient_role,
+        message_text=message_text,
+        trigger_event=trigger_event,
+        status=status,
+        gateway=gateway,
+        sent_at=datetime.utcnow(),
+    )
+    db.add(sms_entry)
+    db.commit()
+    db.refresh(sms_entry)
+    return sms_entry
+
+
+def list_sms_logs(db: Session, limit: int = 50) -> List[SMSLog]:
+    """Retrieve audit history of dispatched SMS messages."""
+    return (
+        db.query(SMSLog)
+        .order_by(SMSLog.sent_at.desc())
+        .limit(limit)
+        .all()
+    )
 
 

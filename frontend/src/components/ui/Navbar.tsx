@@ -11,7 +11,8 @@ import {
   FaEye,
   FaDatabase,
   FaCalendarCheck,
-  FaShieldAlt
+  FaShieldAlt,
+  FaUserMd
 } from 'react-icons/fa';
 
 export const Navbar: React.FC = () => {
@@ -73,6 +74,7 @@ export const Navbar: React.FC = () => {
     { path: '/analyze', label: 'Analyze', icon: FaMicroscope },
     { path: '/history', label: 'History', icon: FaHistory },
     { path: '/appointments', label: 'Appointments', icon: FaCalendarCheck, badge: urgentApptsCount },
+    { path: '/doctor', label: 'Doctor Portal', icon: FaUserMd, badge: urgentApptsCount },
     { path: '/how-it-works', label: 'How It Works', icon: FaInfoCircle },
     { path: '/about', label: 'About', icon: FaInfoCircle },
   ];

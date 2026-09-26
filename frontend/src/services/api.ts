@@ -153,4 +153,130 @@ export async function deleteAppointment(appointmentId: string): Promise<void> {
   }
 }
 
+// --- Doctor Portal & SMS API Client ----------------------------------------
+
+export async function getDoctorProfile(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/doctor/profile`);
+  if (!res.ok) {
+    throw new Error('Failed to fetch doctor profile');
+  }
+  return res.json();
+}
+
+export async function registerDoctor(payload: {
+  full_name: string;
+  phone_number: string;
+  specialty?: string;
+  hospital_name?: string;
+  clinic_room?: string;
+  email?: string;
+  license_number?: string;
+  pin_code?: string;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/doctor/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to register doctor');
+  }
+  return res.json();
+}
+
+export async function loginDoctor(phone_or_name: string, pin_code: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/doctor/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone_or_name, pin_code }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Invalid doctor credentials or PIN');
+  }
+  return res.json();
+}
+
+export async function getPendingVerifications(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/doctor/pending-verifications`);
+  if (!res.ok) {
+    throw new Error('Failed to retrieve pending verifications');
+  }
+  return res.json();
+}
+
+export async function verifyAndScheduleAppointment(payload: {
+  appointment_id: string;
+  scheduled_time: string;
+  doctor_notes?: string;
+  dr_grade_verified?: number;
+  clinic_room?: string;
+  patient_phone?: string;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/doctor/verify-and-schedule`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to verify and schedule appointment');
+  }
+  return res.json();
+}
+
+export async function getSMSLogs(): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/doctor/sms-logs`);
+  if (!res.ok) {
+    throw new Error('Failed to fetch SMS logs');
+  }
+  return res.json();
+}
+
+export async function sendTestSMS(phone_number: string, message: string, recipient_name?: string): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/doctor/test-sms`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone_number, message, recipient_name }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to dispatch test SMS');
+  }
+  return res.json();
+}
+
+export async function getTwilioConfig(): Promise<{
+  configured: boolean;
+  mode: string;
+  account_sid_masked: string | null;
+  from_number: string | null;
+}> {
+  const res = await fetch(`${API_BASE_URL}/doctor/twilio-config`);
+  if (!res.ok) {
+    throw new Error('Failed to fetch Twilio status');
+  }
+  return res.json();
+}
+
+export async function updateTwilioConfig(payload: {
+  account_sid: string;
+  auth_token: string;
+  from_number: string;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/doctor/twilio-config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to update Twilio credentials');
+  }
+  return res.json();
+}
+
+
+
 

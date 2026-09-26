@@ -18,11 +18,11 @@ PYTHONPATH="backend:.:$PYTHONPATH" ./venv/bin/python -m uvicorn app.main:app --h
 BACKEND_PID=$!
 
 echo "[2/3] Starting User Screening Frontend on http://localhost:5173 ..."
-(cd frontend && npx vite --host 0.0.0.0 --port 5173) &
+(cd frontend && npx vite --force --host 0.0.0.0 --port 5173) &
 USER_FRONTEND_PID=$!
 
 echo "[3/3] Starting Admin & Systems Console on http://localhost:5174 ..."
-(cd admin_frontend && npx vite --host 0.0.0.0 --port 5174) &
+(cd admin_frontend && npx vite --force --host 0.0.0.0 --port 5174) &
 ADMIN_FRONTEND_PID=$!
 
 trap "kill $BACKEND_PID $USER_FRONTEND_PID $ADMIN_FRONTEND_PID 2>/dev/null; exit" SIGINT SIGTERM EXIT

@@ -36,7 +36,9 @@ from ..database import (
     get_appointment_by_id,
     list_appointments,
     update_appointment_status,
+    get_active_doctor,
 )
+from ..services.sms_service import send_referable_dr_alert
 from ..ml.dr_classifier import DRClassifier
 try:
     from sample_data.sample_generator import ensure_sample_images
@@ -227,15 +229,53 @@ def save_analysis_to_db(analysis_data: dict, filename: str) -> tuple[str, Option
                 priority = "Priority Referral (1-2 Weeks)"
                 action_required = "Comprehensive dilated fundus examination, OCT macular evaluation to assess for diabetic macular edema (DME), and specialist management plan."
 
+            active_doctor = get_active_doctor(db)
+            doc_name = active_doctor.full_name if active_doctor else "Dr. Sarah Lin, MD (Vitreoretinal Surgeon)"
+            doc_specialty = active_doctor.specialty if active_doctor else "Vitreoretinal Ophthalmology & Retinal Surgery"
+            hosp_name = active_doctor.hospital_name if active_doctor else "Apex Regional Eye Institute & Referral Center"
+            clinic_room = active_doctor.clinic_room if active_doctor else "Suite 402 - Emergency Retina Clinic"
+            contact_phone = active_doctor.phone_number if active_doctor else "+1 (800) 555-RETINA"
+            doc_id = active_doctor.doctor_id if active_doctor else "DOC-ONCALL"
+
+            patient_name_str = f"Patient #{patient_id}" if patient_id else "Anonymous Patient"
+
             appt = create_emergency_appointment(
                 db=db,
                 analysis_id=analysis_id,
+                patient_id=str(patient_id) if patient_id else "Anonymous",
+                patient_name=patient_name_str,
+                doctor_name=doc_name,
+                doctor_specialty=doc_specialty,
+                hospital_name=hosp_name,
+                clinic_room=clinic_room,
+                contact_phone=contact_phone,
                 dr_grade=dr_grade_int,
                 severity_level=severity_str,
                 clinical_reason=clinical_reason,
                 priority=priority,
                 action_required=action_required,
             )
+            if appt:
+                appt.doctor_id = doc_id
+                appt.verification_status = "PENDING_DOCTOR_REVIEW"
+                db.commit()
+
+            # Trigger automated SMS alert to the on-call doctor
+            if active_doctor and active_doctor.phone_number:
+                try:
+                    send_referable_dr_alert(
+                        doctor_phone=active_doctor.phone_number,
+                        doctor_name=active_doctor.full_name,
+                        patient_name=patient_name_str,
+                        patient_id=str(patient_id) if patient_id else "Anonymous",
+                        dr_grade=dr_grade_int,
+                        severity=severity_str,
+                        analysis_id=analysis_id,
+                        db=db,
+                    )
+                except Exception as _sms_err:
+                    print(f"SMS alert dispatch error: {_sms_err}")
+
             appointment_dict = appt.to_dict()
 
         return analysis_id, appointment_dict

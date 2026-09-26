@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 from contextlib import asynccontextmanager
 
-from .api import endpoints, image_upload, analysis, reports, legacy, admin
+from .api import endpoints, image_upload, analysis, reports, legacy, admin, doctor
 from .database import engine, Base, check_database_connection, init_db
 from .config import settings
 
@@ -67,6 +67,7 @@ app.include_router(analysis.router, prefix="/api/v1", tags=["Analysis"])
 app.include_router(reports.router, prefix="/api/v1", tags=["Reports"])
 app.include_router(legacy.router, prefix="/api", tags=["Legacy"])
 app.include_router(admin.router, prefix="/api", tags=["Admin"])
+app.include_router(doctor.router, tags=["Doctor"])
 
 @app.get("/")
 async def root():

@@ -12,6 +12,7 @@ import HistoryPage from './pages/HistoryPage';
 import HowItWorksPage from './pages/HowItWorksPage';
 import AboutPage from './pages/AboutPage';
 import AppointmentsPage from './pages/AppointmentsPage';
+import DoctorPortalPage from './pages/DoctorPortalPage';
 import { AnalysisResponse, NavigationTab } from './types';
 
 const AdminRedirect: React.FC<{ section: string }> = ({ section }) => {
@@ -68,6 +69,7 @@ function App() {
               <Route path="/results/:imageId" element={<ResultsPage />} />
               <Route path="/history" element={<HistoryRoute />} />
               <Route path="/appointments" element={<AppointmentsPage />} />
+              <Route path="/doctor" element={<DoctorPortalPage />} />
               <Route path="/how-it-works" element={<HowItWorksPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/simulink" element={<AdminRedirect section="Simulink Telemedicine Simulator" />} />

@@ -71,7 +71,37 @@ export interface Appointment {
   severity_level?: string;
   clinical_reason?: string;
   action_required?: string;
+  doctor_id?: string;
+  verification_status?: 'PENDING_DOCTOR_REVIEW' | 'VERIFIED_SCHEDULED' | string;
+  doctor_notes?: string;
+  verified_at?: string;
   created_at: string;
+}
+
+export interface DoctorProfile {
+  id?: number;
+  doctor_id: string;
+  full_name: string;
+  phone_number: string;
+  email?: string;
+  specialty: string;
+  hospital_name: string;
+  clinic_room: string;
+  license_number?: string;
+  is_active_on_call: boolean;
+  created_at?: string;
+}
+
+export interface SMSLogItem {
+  id: number;
+  recipient_phone: string;
+  recipient_name: string;
+  recipient_role: string;
+  message_text: string;
+  trigger_event: string;
+  status: string;
+  gateway: string;
+  sent_at: string;
 }
 
 export interface AnalysisResponse {
@@ -145,4 +175,5 @@ export type NavigationTab =
   | 'about'
   | 'simulink'
   | 'models'
-  | 'appointments';
+  | 'appointments'
+  | 'doctor';
